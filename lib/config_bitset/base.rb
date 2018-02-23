@@ -13,8 +13,8 @@ module ConfigBitset
     end
 
     def to_a
-      self.class.list.each_with_object([]) do |hash, acc|
-        acc << hash if send("#{hash[:name]}?")
+      self.class.list.each_with_object([]) do |flag_hash, acc|
+        acc << flag_hash if send("#{flag_hash[:name]}?")
       end
     end
 
@@ -28,16 +28,15 @@ module ConfigBitset
     end
 
     class << self
-      # TODO: use shift instead of int value.
       # Registers a config flag and generates utility methods for it.
       # name: string|symbol
-      # value: integer
+      # index: integer
       # display_name: string (optional)
-      def define_flag(name, value, display_name = nil)
-        raise ArgumentError, "value must be an integer" unless value.is_a?(Integer)
-
+      def define_flag(name, index, display_name = nil)
         # Standardize on lower-case string.
         name = name.to_s.downcase
+
+        value = 1 << index
 
         # Register a flag.
         register_flag(name: name, value: value, display_name: display_name.presence || name.titleize)
@@ -57,26 +56,35 @@ module ConfigBitset
         end
       end
 
+      # e.g. 9 => 512
+      def index_to_value(index)
+        1 << index
+      end
+
+      # e.g. 512 => 9
+      def value_to_index(value)
+        value.to_s(2).size - 1
+      end
+
       def list
         # Create an array on first access.
-        @registered_flags ||= []
+        @list ||= []
       end
 
       private def register_flag(flag_hash)
-        ensure_registered_flags_initialized
         puts "Already registered: #{flag_hash.inspect}" if already_registered?(flag_hash)
-        @registered_flags << flag_hash
-      end
-
-      private def ensure_registered_flags_initialized
-        list
+        @list << flag_hash
       end
 
       private def already_registered?(flag_hash)
-        ensure_registered_flags_initialized
-        @registered_flags.map do |registered_flag|
+        ensure_list_initialized
+        list.map do |registered_flag|
           registered_flag[:name] == flag_hash[:name] || registered_flag[:value] == flag_hash[:value]
         end.any?
+      end
+      
+      private def ensure_list_initialized
+        list
       end
     end
   end
